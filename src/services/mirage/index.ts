@@ -1,4 +1,4 @@
-import {createServer, Factory, Model} from 'miragejs'
+import {createServer, Factory, Model, Response, ActiveModelSerializer} from 'miragejs'
 import faker, { date } from 'faker'
 
 
@@ -8,10 +8,14 @@ type User = {
   created_at: string,
 }
 
-// criando um fake back-end com miragejs
+// criando um fake back-end com miragejs e faker
 
 export function makeServer() {
   const server = createServer({
+    serializers: {
+      application: ActiveModelSerializer,
+    },
+
     models: {
       user: Model.extend<Partial<User>>({})
     },
@@ -37,10 +41,30 @@ export function makeServer() {
     },
 
     routes() {
-      this.namespace = 'api'
+      this.namespace = 'api';
       this.timing = 750;
       
-      this.get('/users');
+      this.get('/users', function (schema, request) {
+        // função de paginação do mirage
+        
+        const { page = 1, per_page = 10 } = request.queryParams
+
+        const total = schema.all('user').length
+
+        const pageStart = (Number(page) - 1) * Number(per_page);
+        const pageEnd = pageStart + Number(per_page);
+
+        const users = this.serialize(schema.all('user'))
+        .users.slice(pageStart, pageEnd)
+
+        return new Response(
+          200,
+          {'x-total-count': String(total)},
+          { users }
+        )
+      });
+      
+      this.get('/users/:id');
       this.post('/users');
 
       this.namespace= ''
